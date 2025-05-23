@@ -1,5 +1,7 @@
 //custom in memory + WAL for scores
 import { ILeaderboard, IScoreDetails } from "../types";
+import path from "path";
+import fs from "fs/promises";
 
 class SkipListNode {
   user_id: string;
@@ -131,5 +133,40 @@ class SkipList {
       current = current.forward[0];
     }
     return -1;
+  }
+}
+
+//WAL for data persistence
+class WriteAheadLog {
+  private writeQueue: Promise<void> = Promise.resolve();
+  private walPath: string;
+
+  constructor(gameId: string) {
+    this.walPath = path.join(process.cwd(), "data", `${gameId}.wal`);
+    this.ensureDirectory();
+  }
+
+  private async ensureDirectory() {
+    const dataDir = path.dirname(this.walPath);
+    try {
+      await fs.mkdir(dataDir, { recursive: true });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("EEXIST")) {
+        return;
+      }
+      console.error(
+        "Failed to create directory:",
+        error instanceof Error ? error.message : "Unknown error"
+      );
+    }
+  }
+
+  private async append(entry: IScoreDetails) {
+    this.writeQueue = this.writeQueue.then(async () => {
+      const logLine = `${entry.user_id}, ${entry.game_id}, ${entry.score}, ${entry.ctime}\n`;
+      await fs.appendFile(this.walPath, logLine);
+    });
+
+    return this.writeQueue;
   }
 }
