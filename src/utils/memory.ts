@@ -142,7 +142,7 @@ class WriteAheadLog {
   private walPath: string;
 
   constructor(gameId: string) {
-    this.walPath = path.join(process.cwd(), "data", `${gameId}.wal`);
+    this.walPath = path.join(process.cwd(), `${gameId}.wal`);
     this.ensureDirectory();
   }
 
