@@ -195,3 +195,64 @@ class WriteAheadLog {
     }
   }
 }
+
+export class LeaderboardEngine {
+  private static Instances = new Map<string, LeaderboardEngine>();
+
+  private gameId: string;
+  private skipList: SkipList;
+  private wal: WriteAheadLog;
+  // private checkpointInterval: NodeJS.Timeout;
+
+  static getInstance(gameId: string): LeaderboardEngine {
+    if (!this.Instances.has(gameId)) {
+      this.Instances.set(gameId, new LeaderboardEngine(gameId));
+    }
+    return this.Instances.get(gameId)!;
+  }
+
+  private constructor(gameId: string) {
+    this.gameId = gameId;
+    this.skipList = new SkipList();
+    this.wal = new WriteAheadLog(gameId);
+    this.recover();
+  }
+
+  private async recover() {
+    const entries = await this.wal.recover();
+
+    for (const entry of entries) {
+      const score: IScoreDetails = {
+        user_id: entry.user_id,
+        game_id: entry.game_id,
+        score: entry.score,
+        ctime: entry.ctime,
+      };
+      this.skipList.insertScore(score);
+    }
+  }
+
+  async updateScore(userId: string, score: number) {
+    const scoreDetails: IScoreDetails = {
+      user_id: userId,
+      game_id: this.gameId,
+      score,
+      ctime: new Date(),
+    };
+
+    await this.wal.append(scoreDetails);
+    this.skipList.insertScore(scoreDetails);
+  }
+
+  getTopK(k: number): ILeaderboard[] {
+    return this.skipList.getTopK(k);
+  }
+
+  getUserRank(userId: string): number {
+    return this.skipList.getRank(userId);
+  }
+
+  getUserScore(userId: string): number {
+    return this.skipList.getScore(userId);
+  }
+}
