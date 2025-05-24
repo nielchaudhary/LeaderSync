@@ -5,6 +5,9 @@ import fs from "fs/promises";
 import { Logger } from "./logger";
 import { isNullOrUndefined } from "./data-helpers";
 const logger = new Logger("memory");
+import { Mutex } from "async-mutex";
+
+const memoryMutex = new Mutex();
 
 class SkipListNode {
   user_id: string;
@@ -217,6 +220,7 @@ export class LeaderboardEngine {
     this.gameId = gameId;
     this.skipList = new SkipList();
     this.wal = new WriteAheadLog(gameId);
+    this.recover();
   }
 
   private async recover() {
@@ -234,8 +238,10 @@ export class LeaderboardEngine {
   }
 
   async updateScore(scoreDetails: IScoreDetails) {
-    await this.wal.append(scoreDetails);
-    this.skipList.insertScore(scoreDetails);
+    await memoryMutex.runExclusive(async () => {
+      await this.wal.append(scoreDetails);
+      this.skipList.insertScore(scoreDetails);
+    });
   }
 
   getTopK(k: number): ILeaderboard[] {
