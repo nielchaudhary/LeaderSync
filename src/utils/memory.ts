@@ -2,6 +2,8 @@
 import { ILeaderboard, IScoreDetails } from "../types";
 import path from "path";
 import fs from "fs/promises";
+import { Logger } from "./logger";
+const logger = new Logger("memory");
 
 class SkipListNode {
   user_id: string;
@@ -161,12 +163,35 @@ class WriteAheadLog {
     }
   }
 
-  private async append(entry: IScoreDetails) {
+  async append(entry: IScoreDetails) {
     this.writeQueue = this.writeQueue.then(async () => {
       const logLine = `${entry.user_id}, ${entry.game_id}, ${entry.score}, ${entry.ctime}\n`;
       await fs.appendFile(this.walPath, logLine);
     });
 
     return this.writeQueue;
+  }
+
+  async recover(): Promise<IScoreDetails[]> {
+    try {
+      const scoreContent = await fs.readFile(this.walPath, "utf-8");
+      const entries: IScoreDetails[] = [];
+
+      for (const line of scoreContent.trim().split("\n")) {
+        if (line.trim()) {
+          const [user_id, game_id, score, ctime] = line.split(",");
+          entries.push({
+            user_id,
+            game_id,
+            score: parseInt(score),
+            ctime: new Date(parseInt(ctime)),
+          });
+        }
+      }
+      return entries;
+    } catch (error) {
+      logger.error("Failed to recover WAL", error);
+      return [];
+    }
   }
 }
