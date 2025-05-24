@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { IScoreDetails } from "../types";
-import { z } from "zod";
 import { scoreIngestionSchema } from "../utils/validations";
 import { Logger } from "../utils/logger";
+import { LeaderboardEngine } from "../utils/memory";
 
 const logger = new Logger("ScoreIngestionService");
 
@@ -24,6 +24,9 @@ export const scoreIngestionPostHandler = async (
       ...reqBody,
       ctime: new Date(),
     };
+
+    const leaderboardEngine = LeaderboardEngine.getInstance(reqBody.game_id);
+    leaderboardEngine.updateScore(scoreDetails);
 
     res.status(200).send(`scores for user : ${reqBody.user_id} added`);
     return;

@@ -3,6 +3,7 @@ import { ILeaderboard, IScoreDetails } from "../types";
 import path from "path";
 import fs from "fs/promises";
 import { Logger } from "./logger";
+import { isNullOrUndefined } from "./data-helpers";
 const logger = new Logger("memory");
 
 class SkipListNode {
@@ -47,24 +48,26 @@ class SkipList {
     const update: (SkipListNode | null)[] = new Array(this.maxLevel + 1).fill(
       null
     );
-    let current = this.header;
+    let current: SkipListNode | null = this.header;
+    let next: SkipListNode | null = null;
 
     for (let i = this.level; i >= 0; i--) {
       while (
-        (current.forward[i] &&
-          current.forward[i]!.score > scoreDetails.score) ||
-        (current.forward[i]!.score === scoreDetails.score &&
-          current.forward[i]!.user_id < scoreDetails.user_id)
+        !isNullOrUndefined(current.forward[i]) &&
+        (current.forward[i]!.score > scoreDetails.score ||
+          (current.forward[i]!.score === scoreDetails.score &&
+            current.forward[i]!.user_id < scoreDetails.user_id))
       ) {
         current = current.forward[i]!;
       }
       update[i] = current;
     }
 
-    current = current.forward[0]!;
+    next = current.forward[0];
 
-    if (current && current.user_id === scoreDetails.user_id) {
-      current.score = scoreDetails.score;
+    // If we found a node with the same user_id, update the score
+    if (!isNullOrUndefined(next) && next.user_id === scoreDetails.user_id) {
+      next.score = scoreDetails.score;
       return;
     }
 
@@ -116,7 +119,7 @@ class SkipList {
     let current = this.header.forward[0];
     let rank = 1;
 
-    while (current) {
+    while (!isNullOrUndefined(current)) {
       if (current.user_id === userId) {
         return rank;
       }
@@ -128,7 +131,7 @@ class SkipList {
 
   getScore(userId: string): number {
     let current = this.header.forward[0];
-    while (current) {
+    while (!isNullOrUndefined(current)) {
       if (current.user_id === userId) {
         return current.score;
       }
@@ -144,7 +147,7 @@ class WriteAheadLog {
   private walPath: string;
 
   constructor(gameId: string) {
-    this.walPath = path.join(process.cwd(), `${gameId}.wal`);
+    this.walPath = path.join(process.cwd(), `data/${gameId}.wal`);
     this.ensureDirectory();
   }
 
@@ -202,7 +205,6 @@ export class LeaderboardEngine {
   private gameId: string;
   private skipList: SkipList;
   private wal: WriteAheadLog;
-  // private checkpointInterval: NodeJS.Timeout;
 
   static getInstance(gameId: string): LeaderboardEngine {
     if (!this.Instances.has(gameId)) {
@@ -215,7 +217,6 @@ export class LeaderboardEngine {
     this.gameId = gameId;
     this.skipList = new SkipList();
     this.wal = new WriteAheadLog(gameId);
-    this.recover();
   }
 
   private async recover() {
@@ -232,14 +233,7 @@ export class LeaderboardEngine {
     }
   }
 
-  async updateScore(userId: string, score: number) {
-    const scoreDetails: IScoreDetails = {
-      user_id: userId,
-      game_id: this.gameId,
-      score,
-      ctime: new Date(),
-    };
-
+  async updateScore(scoreDetails: IScoreDetails) {
     await this.wal.append(scoreDetails);
     this.skipList.insertScore(scoreDetails);
   }
