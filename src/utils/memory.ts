@@ -99,7 +99,7 @@ class SkipList {
     let current = this.header.forward[0];
     let rank = 1;
 
-    while (current && result.length < k) {
+    while (!isNullOrUndefined(current) && result.length < k) {
       result.push({
         user_id: current.user_id,
         score: current.score,
