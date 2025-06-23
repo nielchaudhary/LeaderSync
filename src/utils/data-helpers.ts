@@ -5,7 +5,7 @@ import { Logger } from "./logger";
 
 const logger = new Logger("data-helpers");
 //constants
-export const DB_NAME = "ringgAI";
+export const DB_NAME = "50ms";
 export const SCORES = "scores"; //collection name for scores
 
 export const MAX_RPS = 10000;
@@ -17,7 +17,6 @@ export const isNullOrUndefined = (
 };
 
 //queue to handle 10k RPS
-
 export const addToQueue = (scoreDetails: IScoreDetails) => {
   const queue: IScoreDetails[] = [];
 

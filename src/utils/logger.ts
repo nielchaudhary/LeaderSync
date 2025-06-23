@@ -1,7 +1,7 @@
 import Debug from "debug";
 
 //logger
-const globalContext = "ringgAI";
+const globalContext = "50ms";
 
 export const globalLogger = Debug(globalContext);
 
